@@ -15,7 +15,7 @@ if(NOT TARGET MPI::MPI_C)
 endif()
 
 # create our library (set its name to name of this project)
-add_library(${PROJECT_NAME} SHARED ${all_sources})
+add_library(${PROJECT_NAME} ${all_sources})
 
 target_compile_definitions(${PROJECT_NAME}
     PRIVATE PARMS USE_MPI REAL=double DBL FORTRAN_UNDERSCORE VOID_POINTER_SIZE_8 HAS_BLAS)
