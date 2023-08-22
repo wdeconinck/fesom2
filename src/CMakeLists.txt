@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.9)
 
 project(fesom C Fortran)
 
+set( CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/module/${PROJECT_NAME} )
+
 if(DEFINED ENV{FESOM_PLATFORM_STRATEGY})
    set(FESOM_PLATFORM_STRATEGY $ENV{FESOM_PLATFORM_STRATEGY} CACHE STRING "switch to platform specific compile settings, this is usually determined via the env.sh script")
 else()
