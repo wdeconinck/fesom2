@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.4)
 
-project(async_threads_cpp CXX C Fortran) #  the FortranCInterface requires the C language to be enabled
+project(fesom_async_threads CXX C Fortran) #  the FortranCInterface requires the C language to be enabled
 
 set (CMAKE_CXX_STANDARD 11)
 
@@ -12,8 +12,7 @@ FortranCInterface_HEADER(ThreadsManagerFCMacros.h MACRO_NAMESPACE "ThreadsManage
 
 add_library(${PROJECT_NAME} ${sources} async_threads_module.F90)
 target_include_directories(${PROJECT_NAME}
-    PRIVATE ${CMAKE_CURRENT_LIST_DIR} ${CMAKE_CURRENT_BINARY_DIR}
+  PRIVATE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+  PRIVATE $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
+  PUBLIC  $<BUILD_INTERFACE:${CMAKE_Fortran_MODULE_DIRECTORY}>
 )
-
-target_compile_options(${PROJECT_NAME} PRIVATE -fPIC)
-install(TARGETS ${PROJECT_NAME} EXPORT ifs_sp-targets DESTINATION "${FESOM_INSTALL_PREFIX}/lib")

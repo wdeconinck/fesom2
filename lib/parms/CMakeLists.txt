@@ -1,9 +1,12 @@
 cmake_minimum_required(VERSION 3.4)
 
-project(parms C)
+project(fesom_parms C)
 
 # Set location to look for find_package modules
 set( CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/../../cmake )
+
+# Set -fPIC flag etc.
+set( CMAKE_POSITION_INDEPENDENT_CODE ON )
 
 # get our source files
 set(src_home ${CMAKE_CURRENT_LIST_DIR}) # path to src directory starting from the dir containing our CMakeLists.txt
@@ -33,6 +36,3 @@ if(${CMAKE_C_COMPILER_ID} STREQUAL "Intel")
         target_compile_options(${PROJECT_NAME} PRIVATE -march=core-avx2 -mtune=core-avx2)
     endif()
 endif()
-
-target_compile_options(${PROJECT_NAME} PRIVATE -fPIC)
-install(TARGETS ${PROJECT_NAME} EXPORT ifs_sp-targets DESTINATION "${FESOM_INSTALL_PREFIX}/lib")

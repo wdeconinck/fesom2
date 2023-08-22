@@ -17,4 +17,4 @@ set(OPENMP_REPRODUCIBLE OFF CACHE BOOL "serialize OpenMP loops that are critical
 
 #set(VERBOSE OFF CACHE BOOL "toggle debug output")
 #add_subdirectory(oasis3-mct/lib/psmile)
-add_subdirectory(src)
+add_subdirectory(src fesom)
