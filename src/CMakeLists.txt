@@ -83,7 +83,8 @@ endif()
 
 option(USE_ICEPACK "Use ICEPACK" OFF)
 message(STATUS "USE_ICEPACK: ${USE_ICEPACK}")
-find_package( NETCDF REQUIRED )
+
+find_package( NETCDF REQUIRED COMPONENTS C Fortran )
 find_package( MPI REQUIRED COMPONENTS C Fortran )
 
 option(ENABLE_IFS_INTERFACE "Enable IFS interface" OFF)
