@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.9)
 
 project(fesom LANGUAGES C CXX Fortran VERSION 2.5)
 
+message("[${PROJECT_NAME}]")
+
 ### Setup project
 
 set(BUILD_SHARED_LIBS ON CACHE BOOL "Default to using shared libs")
@@ -66,21 +68,45 @@ elseif(${FESOM_PLATFORM_STRATEGY} STREQUAL  albedo )
 else()
    option(DISABLE_MULTITHREADING "disable asynchronous operations" OFF)
 endif()
+message(STATUS "DISABLE_MULTITHREADING: ${DISABLE_MULTITHREADING}")
+
 
 option(ENABLE_OPENACC "compile with OpenACC support" OFF)
+message(STATUS "ENABLE_OPENACC: ${ENABLE_OPENACC}")
 set(NV_GPU_ARCH "cc80" CACHE STRING "GPU arch for nvfortran compiler (cc35,cc50,cc60,cc70,cc80,...)")
 
 option(ENABLE_OPENMP "build FESOM with OpenMP" OFF)
+message(STATUS "ENABLE_OPENMP: ${ENABLE_OPENMP}")
 if(${ENABLE_OPENMP})
    find_package(OpenMP REQUIRED)
 endif()
 
-# option to trigger building a library version of FESOM
-# we do not always build the library along with the executable to avoid having two targets here in the CMakeLists.txt
-# two targets would allow e.g. setting different compiler options or preprocessor definition, which would be error prone.
-option(BUILD_FESOM_AS_LIBRARY "Build a library instead of an executable" OFF)
+option(USE_ICEPACK "Use ICEPACK" OFF)
+message(STATUS "USE_ICEPACK: ${USE_ICEPACK}")
+find_package( NETCDF REQUIRED )
+find_package( MPI REQUIRED COMPONENTS C Fortran )
 
-set(FESOM_INSTALL_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/../.." CACHE FILEPATH "directory where FESOM will be installed to via 'make install'")
+option(ENABLE_IFS_INTERFACE "Enable IFS interface" OFF)
+message(STATUS "ENABLE_IFS_INTERFACE: ${ENABLE_IFS_INTERFACE}")
+
+option(ENABLE_MULTIO "Enable MultIO" ${ENABLE_IFS_INTERFACE})
+message(STATUS "ENABLE_MULTIO: ${ENABLE_MULTIO}")   #  --> currently IFS_INTERFACE is requiring multio. Could this be made independent?
+
+if(ENABLE_MULTIO)
+  find_package(multio)
+  if(NOT TARGET multio-fapi)
+    message(FATAL_ERROR "Could not find multio")
+  endif()
+endif()
+
+if(ENABLE_IFS_INTERFACE)
+  if(NOT ENABLE_MULTIO)
+    message(FATAL_ERROR "Could not enable IFS interface as it currently requires multio (ENABLE_MULTIO=${ENABLE_MULTIO})")
+  endif()
+  if(USE_ICEPACK)
+    message(FATAL_ERROR "Could not enable IFS interface as it is incompatible with USE_ICEPACK")
+  endif()
+endif()
 
 # get our source files
 set(src_home ${CMAKE_CURRENT_LIST_DIR}) # path to src directory starting from the dir containing our CMakeLists.txt
@@ -88,7 +114,7 @@ if(${USE_ICEPACK})
    file(GLOB sources_Fortran ${src_home}/*.F90
                              ${src_home}/icepack_drivers/*.F90
                              ${src_home}/icepack_drivers/Icepack/columnphysics/*.F90)
-elseif(${BUILD_FESOM_AS_LIBRARY} AND ENABLE_MULTIO)
+elseif(ENABLE_IFS_INTERFACE)
    file(GLOB sources_Fortran ${src_home}/*.F90
                              ${src_home}/ifs_interface/*.F90) # ICEPACK + LIBRARY NOT SUPPORTED (YET)
 else()
@@ -112,16 +138,6 @@ add_custom_command(OUTPUT 5303B6F4_E4F4_45B2_A6E5_8E2B9FB5CDC4 ${FESOM_GENERATED
 list(REMOVE_ITEM sources_Fortran ${src_home}/fvom_init.F90 ${src_home}/oce_local.F90 ${src_home}/gen_comm.F90)
 list(REMOVE_ITEM sources_C       ${src_home}/fort_part.c)
 list(REMOVE_ITEM sources_Fortran ${src_home}/fesom_main.F90)
-
-find_package( NETCDF REQUIRED )
-find_package( MPI REQUIRED COMPONENTS C Fortran )
-option(ENABLE_MULTIO "Enable MultIO" OFF)
-if(ENABLE_MULTIO)
-   find_package(multio)
-   if(NOT TARGET multio-fapi)
-      message(FATAL_ERROR "Could not find multio. Required as option ENABLE_MULTIO=ON")
-   endif()
-endif()
 
 # depends on the metis library
 #add_subdirectory(../lib/metis-5.1.0 ${PROJECT_BINARY_DIR}/metis)
@@ -174,8 +190,7 @@ if(${OIFS_COUPLED})
 endif()
 if(${USE_ICEPACK})
    target_compile_definitions(${PROJECT_NAME} PRIVATE __icepack)
-endif()
-if(${BUILD_FESOM_AS_LIBRARY})
+elseif(${ENABLE_IFS_INTERFACE})
    target_compile_definitions(${PROJECT_NAME} PRIVATE __ifsinterface)
 endif()
 if(${VERBOSE})
@@ -187,11 +202,7 @@ endif()
 
 # CMAKE_Fortran_COMPILER_ID will also work if a wrapper is being used (e.g. mpif90 wraps ifort -> compiler id is Intel)
 if(${CMAKE_Fortran_COMPILER_ID} STREQUAL  Intel )
-   if(${BUILD_FESOM_AS_LIBRARY})
-        target_compile_options(${PROJECT_NAME} PRIVATE -r8 -i4 -fp-model precise -no-prec-div -no-prec-sqrt -fimf-use-svml -ip -init=zero -no-wrap-margin -fpe0) # add -fpe0 for RAPS environment
-   else()
-        target_compile_options(${PROJECT_NAME} PRIVATE -r8 -i4 -fp-model precise -no-prec-div -no-prec-sqrt -fimf-use-svml -ip -init=zero -no-wrap-margin)
-   endif()
+   target_compile_options(${PROJECT_NAME} PRIVATE -r8 -i4 -fp-model precise -no-prec-div -no-prec-sqrt -fimf-use-svml -ip -init=zero -no-wrap-margin -fpe0)
    if(${FESOM_PLATFORM_STRATEGY} STREQUAL  levante.dkrz.de )
       target_compile_options(${PROJECT_NAME} PRIVATE -march=core-avx2 -mtune=core-avx2)
    elseif(${FESOM_PLATFORM_STRATEGY} STREQUAL  albedo)
@@ -210,10 +221,11 @@ elseif(${CMAKE_Fortran_COMPILER_ID} STREQUAL  GNU )
       target_compile_options(${PROJECT_NAME} PRIVATE -fallow-argument-mismatch) # gfortran v10 is strict about erroneous API calls: "Rank mismatch between actual argument at (1) and actual argument at (2) (scalar and rank-1)"
    endif()
 elseif(${CMAKE_Fortran_COMPILER_ID} STREQUAL Cray )
+   target_compile_options(${PROJECT_NAME} PRIVATE -c -emf -hbyteswapio -hflex_mp=conservative -hfp1 -hadd_paren -Ounroll0 -hipa0 -r am -s real64 -N 1023)
    if(${ENABLE_OPENMP})
-      target_compile_options(${PROJECT_NAME} PRIVATE -c -emf -hbyteswapio -hflex_mp=conservative -hfp1 -hadd_paren -Ounroll0 -hipa0 -r am -s real64 -N 1023 -homp)
+      target_compile_options(${PROJECT_NAME} PRIVATE -homp)
    else()
-      target_compile_options(${PROJECT_NAME} PRIVATE -c -emf -hbyteswapio -hflex_mp=conservative -hfp1 -hadd_paren -Ounroll0 -hipa0 -r am -s real64 -N 1023 -hnoomp)
+      target_compile_options(${PROJECT_NAME} PRIVATE -hnoomp)
    endif()
 elseif(${CMAKE_Fortran_COMPILER_ID} STREQUAL NVHPC )
    target_compile_definitions(${PROJECT_NAME} PRIVATE ENABLE_NVHPC_WORKAROUNDS)
