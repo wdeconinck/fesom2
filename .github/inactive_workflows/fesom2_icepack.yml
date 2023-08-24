@@ -14,6 +14,9 @@ jobs:
     # Docker Hub image that `container-job` executes in
     container: koldunovn/fesom2_test:refactoring2
 
+    env:
+        CMAKE_ARGS: -DUSE_ICEPACK=ON
+
     # Service containers to run with `gfortran_ubuntu`
     steps:
     # NK: this changes working directory to fesom2
@@ -21,7 +24,6 @@ jobs:
 
     - name: prepeare FESOM2_icepack
       run: |
-        sed -i 's/USE_ICEPACK OFF/USE_ICEPACK ON/g' CMakeLists.txt
         cd ./src/icepack_drivers/
         ./download_icepack.sh
         cd ../../

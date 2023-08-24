@@ -14,16 +14,13 @@ jobs:
     # Docker Hub image that `container-job` executes in
     container: koldunovn/fesom2_test:refactoring2
 
+    env:
+      CMAKE_ARGS: -DENABLE_OPENMP=ON
+
     # Service containers to run with `gfortran_ubuntu`
     steps:
     # NK: this changes working directory to fesom2
     - uses: actions/checkout@v2
-
-    - name: switch OpenMP ON
-      run: |
-        cd ./src/
-        sed -i 's/with OpenMP\" OFF/with OpenMP\" ON/g' CMakeLists.txt
-        cd ../
 
     - name: Compile model
       run: |
