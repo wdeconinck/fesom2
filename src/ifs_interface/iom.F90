@@ -6,13 +6,16 @@
 !-----------------------------------------------------
 
 MODULE iom
+#if defined(__MULTIO)
     USE multio_api
+#endif
     USE, INTRINSIC :: iso_fortran_env, only: real64
 
     IMPLICIT NONE
     PRIVATE
-
+#if defined(__MULTIO)
     TYPE(multio_handle) :: mio_handle
+#endif
     INTEGER(8), PRIVATE :: mio_parent_comm
 
     PUBLIC iom_initialize, iom_init_server, iom_finalize
@@ -43,6 +46,7 @@ CONTAINS
         IMPLICIT NONE
         INTEGER(8), INTENT(INOUT) :: context  ! Use mpi communicator as context
         INTEGER, INTENT(IN) :: err
+#if defined(__MULTIO)
         INTEGER :: mpierr
  
         IF (err /= MULTIO_SUCCESS) THEN
@@ -52,6 +56,9 @@ CONTAINS
                 context = MPI_UNDEFINED
             ENDIF
         ENDIF
+#else
+        CALL ctl_stop('multio_custom_error_handler: FESOM compiled without MULTIO')
+#endif
     END SUBROUTINE
  
  
@@ -63,6 +70,7 @@ CONTAINS
         INTEGER,INTENT(IN), OPTIONAL      :: local_comm
         INTEGER,INTENT(OUT), OPTIONAL     :: return_comm
         INTEGER,INTENT(IN), OPTIONAL      :: global_comm
+#if defined(__MULTIO)
         TYPE(multio_configuration)        :: conf_ctx
         INTEGER :: err
         CHARACTER(len=16)                 :: err_str
@@ -143,12 +151,15 @@ CONTAINS
         IF (err /= MULTIO_SUCCESS) THEN
             CALL ctl_stop('mio_handle%open_connections failed: ', multio_error_string(err))
         END IF
+#else
+        CALL ctl_stop("iom_initialize: FESOM built without multio")
+#endif
     END SUBROUTINE iom_initialize
  
     SUBROUTINE iom_finalize()
         IMPLICIT NONE
         INTEGER :: err
-
+#if defined(__MULTIO)
         err = mio_handle%close_connections();
         IF (err /= MULTIO_SUCCESS) THEN
             CALL ctl_stop('mio_handle%close_connections failed: ', multio_error_string(err))
@@ -158,11 +169,15 @@ CONTAINS
         IF (err /= MULTIO_SUCCESS) THEN
             CALL ctl_stop('mio_handle%delete failed: ', multio_error_string(err))
         END IF
+#else
+        CALL ctl_stop("iom_finalize: FESOM built without multio")
+#endif
     END SUBROUTINE iom_finalize
  
     SUBROUTINE iom_init_server(server_comm)
        IMPLICIT NONE
        INTEGER, INTENT(IN) :: server_comm
+#if defined(__MULTIO)
        type(multio_configuration)        :: conf_ctx
        INTEGER                           :: err
        CHARACTER(len=16)                 :: err_str
@@ -225,6 +240,9 @@ CONTAINS
         IF (err /= MULTIO_SUCCESS) THEN
             CALL ctl_stop('conf_ctx%delete() failed: ', multio_error_string(err))
         END IF
+#else
+        CALL ctl_stop("iom_init_server: FESOM built without multio")
+#endif
     END SUBROUTINE iom_init_server
 
     SUBROUTINE iom_send_fesom_domains(partit, mesh)
@@ -233,11 +251,12 @@ CONTAINS
 
         IMPLICIT NONE
      
+        TYPE(t_partit), INTENT(IN), TARGET :: partit
+        TYPE(t_mesh),   intent(in), TARGET :: mesh
+#if defined(__MULTIO)
         TYPE(multio_metadata)              :: md
         INTEGER                            :: cerr
         INTEGER                            :: elem, elnodes(3), aux
-        TYPE(t_partit), INTENT(IN), TARGET :: partit
-        TYPE(t_mesh),   intent(in), TARGET :: mesh
         INTEGER, DIMENSION(:), POINTER     :: temp
      
 #include "../associate_part_def.h"
@@ -326,12 +345,16 @@ CONTAINS
         IF (cerr /= MULTIO_SUCCESS) THEN
             CALL ctl_stop('send_fesom_domains: egrid, md%delete() failed: ', multio_error_string(cerr))
         END IF
+#else
+        CALL ctl_stop("iom_send_fesom_domains: FESOM built without multio")
+#endif
     END SUBROUTINE iom_send_fesom_domains
 
     SUBROUTINE iom_send_fesom_data(data)
         IMPLICIT NONE
     
         TYPE(iom_field_request), INTENT(INOUT)  :: data
+#if defined(__MULTIO)
         INTEGER                                 :: cerr
         TYPE(multio_metadata)                   :: md
     
@@ -389,6 +412,9 @@ CONTAINS
         IF (cerr /= MULTIO_SUCCESS) THEN
             CALL ctl_stop('send_fesom_data: md%delete failed: ', multio_error_string(cerr))
         END IF
+#else
+        CALL ctl_stop("iom_send_fesom_data: FESOM built without multio")
+#endif
     END SUBROUTINE
 
     SUBROUTINE ctl_stop(m1, m2, m3, m4)
