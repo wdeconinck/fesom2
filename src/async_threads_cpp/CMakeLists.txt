@@ -1,28 +1,30 @@
-cmake_minimum_required(VERSION 3.4)
+cmake_minimum_required(VERSION 3.16)
 
-project(async_threads_cpp CXX C Fortran) #  the FortranCInterface requires the C language to be enabled
+project(async_threads CXX C Fortran) #  the FortranCInterface requires the C language to be enabled
+
+set (CMAKE_CXX_STANDARD 11)
 
 # get our source files
-file(GLOB sources_CXX ${CMAKE_CURRENT_LIST_DIR}/*.cpp)
+file(GLOB sources ${CMAKE_CURRENT_LIST_DIR}/*.cpp)
 
 include(FortranCInterface)
 FortranCInterface_HEADER(ThreadsManagerFCMacros.h MACRO_NAMESPACE "ThreadsManagerFCMacros_" SYMBOLS init_ccall begin_ccall end_ccall)
 
-if(${BUILD_FESOM_AS_LIBRARY})
-  add_library(${PROJECT_NAME} ${sources_CXX})
-else()
-  add_library(${PROJECT_NAME} ${sources_CXX})
-endif()
+add_library(${PROJECT_NAME} ${sources} async_threads_module.F90)
 target_include_directories(${PROJECT_NAME}
-	INTERFACE ${CMAKE_CURRENT_LIST_DIR}
-	PUBLIC ${CMAKE_CURRENT_BINARY_DIR}
+  PRIVATE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+  PRIVATE $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
+  PUBLIC  $<BUILD_INTERFACE:${CMAKE_Fortran_MODULE_DIRECTORY}>
 )
-if(${CMAKE_CXX_COMPILER_ID} STREQUAL Cray )
-   target_compile_options(${PROJECT_NAME} PRIVATE -hstd=c++11)
-else()
-   target_compile_options(${PROJECT_NAME} PRIVATE -std=c++11)
-endif()
-if(${BUILD_FESOM_AS_LIBRARY})
-  target_compile_options(${PROJECT_NAME} PRIVATE -fPIC)
-  install(TARGETS ${PROJECT_NAME} DESTINATION "${FESOM_INSTALL_PREFIX}/lib")
+
+if(ENABLE_OPENMP)
+   # there is a problem (at least on levante with ifort) with openmp and I/O multithreading being active at the same time
+   # in this case the simulation stops and never finishes
+   # this has been observed with IFS-Fesom and Fesom standalone
+   # until the problem is identified, we exclude the I/O and multithreading files from openmp compilation, i.e. "-qno-openmp" for ifort
+   if(NOT DISABLE_MULTITHREADING)
+      if(${CMAKE_Fortran_COMPILER_ID} STREQUAL  Intel )
+         set_source_files_properties(${CMAKE_CURRENT_LIST_DIR}/async_threads_module.F90 PROPERTIES COMPILE_OPTIONS "-qno-openmp")
+      endif()
+   endif()
 endif()
