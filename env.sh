@@ -17,15 +17,20 @@ else
    BEING_EXECUTED=false
 fi
 
-# if an arg is given, use it as hostname
-if [ -z "$1" ]; then
+# if an arg is given and doesn't start with - use it as hostname, arguments stating with - are passed on later to cmake
+if [[ -z "$1" ]] || [[  "$1" =~ ^- ]]; then
    # no argument given
    LOGINHOST="$(hostname -f)"
 else
-   LOGINHOST=$1
+   LOGINHOST=$1 # 1st arg exists and doesn't start with -, meaning it is machine specification
+   shift # pop the argument as we already stored it, remaining arguments are passed to cmake
 fi
 
-if [[ $LOGINHOST =~ ^m[A-Za-z0-9]+\.hpc\.dkrz\.de$ ]]; then
+if [[ "$LOGINHOST" == "local" ]]; then
+   echo "Using local environment $BEING_EXECUTED"
+   [ $BEING_EXECUTED = true ] && exit
+   return 0 # if we are being sourced, return from this script here
+elif [[ $LOGINHOST =~ ^m[A-Za-z0-9]+\.hpc\.dkrz\.de$ ]]; then
    STRATEGY="mistral.dkrz.de"
 elif [[ $LOGINHOST =~ ^l[A-Za-z0-9]+\.lvt\.dkrz\.de$ ]]; then
    STRATEGY="levante.dkrz.de"
